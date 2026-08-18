@@ -1,0 +1,23 @@
+# Machine-local configuration
+#
+# Uncomment the features that are relevant to this machine, and
+# replace all ellipses with the correct values
+
+[vars]
+hostname = "..."
+# git_email = "..." # uncomment to change the default git email
+
+## Add backups to this machine (configure the user of the Hetzner storage box)
+# [features.backup]
+# host = "..."
+
+## Set this machine up with a virtual desktop accessible via RDP
+# [features.rdp-host]
+
+## Create a user on this machine that automatically connects to a given RDP host
+## Can be used multiple times for multiple hosts/users
+# [[features.rdp-client]]
+
+## Pull backups from the Hetzner storage box and replicate them locally
+## Can be used multiple times to replicate multiple backups
+# [[features.replicate-backup]]

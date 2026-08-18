@@ -1,0 +1,9 @@
+# the usual irritating files that appear in weird places
+.DS_Store
+*.swp
+*~
+
+# used for projects that don't have a defined
+# mise.toml checked in, where we want to set something
+# up ourselves 
+mise.local.toml

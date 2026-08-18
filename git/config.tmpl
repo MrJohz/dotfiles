@@ -1,0 +1,11 @@
+[user]
+    name  = Jonathan Frere
+    email = {{ vars.git_email | default(value="jonathan.frere@gmail.com") }}
+    signingkey = ~/.ssh/id_ed25519.pub
+
+[init]
+    defaultBranch = main
+[pull]
+    rebase = true
+[core]
+    excludesfile = ~/.config/git/ignore

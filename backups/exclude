@@ -1,0 +1,34 @@
+# Everying in $HOME is backed up except for the following files
+# (Also directories that write CACHEDIR.TAG or .nobackup files will be ignored
+# but this standard doesn't seem very popular unfortunately.)
+
+# ── Re-downloadable machinery ──────────────────────────────────────────
+# Flatpak per-app data: Steam libraries, browser caches, Prism instances.
+$HOME/.var/app
+$HOME/.local/share/flatpak
+# Rootless podman image and overlay storage.
+$HOME/.local/share/containers
+# mise toolchains and CLI tools — reinstalled by `mise bootstrap`.
+$HOME/.local/share/mise
+$HOME/.local/state/mise
+
+# ── Caches ─────────────────────────────────────────────────────────────
+$HOME/.cache
+**/.cache
+**/node_modules
+**/.venv
+**/target
+**/build
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.gradle
+**/.m2/repository
+
+# ── Desktop noise ──────────────────────────────────────────────────────
+$HOME/.local/share/Trash
+$HOME/.local/share/gvfs-metadata
+$HOME/.thumbnails
+
+# ── Secrets ────────────────────────────────────────────────────────────
+$HOME/.ssh

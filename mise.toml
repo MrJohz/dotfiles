@@ -1,0 +1,11 @@
+[tools]
+deno = "latest"
+taplo = "latest"
+
+[tasks.setup]
+description = "Create the bootstrap mise config"
+run = "deno -R=./setup.toml -W=./mise.bootstrap.toml install.ts"
+
+[tasks.bootstrap]
+description = "Run the bootstrap action"
+run = "MISE_ENV=bootstrap mise bootstrap"
