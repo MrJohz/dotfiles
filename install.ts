@@ -30,7 +30,9 @@ function hostname(config: Config): Mise {
 
 function fish(): Mise {
   return {
-    bootstrap: { user: { login_shell: "/usr/bin/fish" } },
+    bootstrap: {
+      hooks: { final: { run: ['sudo usermod -s /usr/bin/fish "$USER"'] } },
+    },
     dotfiles: {
       "~/.config/fish/conf.d": { source: "fish/conf.d", mode: "symlink-each" },
       "~/.config/fish/functions": {
