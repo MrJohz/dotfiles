@@ -5,7 +5,26 @@ import { deepMerge } from "jsr:@cross/deepmerge";
 import { undent } from "jsr:@okikio/undent";
 import type { Mise, Vars1 } from "./mise-schema.d.ts";
 
+/**
+ * file-style undents
+ *
+ * Ensures that if the text block ends with \n, then exactly
+ * one trailing newline will appear in the trimmed string (default
+ * is to trim all newlines)
+ */
 const file = undent.with({ trim: { leading: "all", trailing: "one" } });
+
+/**
+ * file path in the ephemeral folder
+ *
+ * Defines a path that will show up in the ephemeral (not-checked-in)
+ * folder in this project, for files that are generated during install
+ * and need to be copied to the server later
+ */
+const ephemeral = (str: string | TemplateStringsArray, ...subs: unknown[]) =>
+  `ephemeral/${
+    typeof str === "string" ? str : String.raw({ raw: str }, ...subs)
+  }`;
 
 function hostname(config: Config): Mise {
   return {
@@ -70,13 +89,22 @@ function tools(): Mise {
 async function backup(config: Config): Promise<Mise> {
   if (!config.features?.backup) return {};
 
-  const password = await $.prompt("Backup Password", { mask: true });
+  const username = await $.prompt("Backup box user");
+  const password = await $.prompt("Restic password", { mask: true });
+
+  const remote = `${username}@${config.features.backup.host}`;
+
+  const backupKeyFolder = ephemeral`storagebox`;
+  const backupKeyFile = backupKeyFolder + "/id_ed25519_storagebox";
+  await $`mkdir -p ${backupKeyFolder}`;
+  await $`ssh-keygen -t ed25519 -C ${remote} -f ${backupKeyFile} -N ""`;
 
   return {
-    vars: { backup_host: config.features.backup.host },
+    vars: { backup_host: config.features.backup.host, backup_user: username },
     dotfiles: {
       "~/.config/restic/exclude": "backups/exclude",
       "~/.local/bin/restic-backup": "backups/restic-backup.sh",
+      "~/.config/restic/keys": backupKeyFolder,
       "~/.ssh/config.d/10-storagebox.conf": {
         source: "ssh/storagebox.conf.tmpl",
         mode: "template",
@@ -105,6 +133,12 @@ async function backup(config: Config): Promise<Mise> {
             },
           },
         },
+      },
+      hooks: {
+        // Get storage box set up with a copy of the backup key
+        // This will prompt for a password -- I couldn't find a better way of
+        // doing this than just letting the prompt happen
+        final: { run: [`ssh-copy-id -p 23 ${remote} -i ${backupKeyFile}`] },
       },
       files: {
         "~/.config/restic/env": {
