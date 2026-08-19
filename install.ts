@@ -32,7 +32,6 @@ function fish(): Mise {
   return {
     bootstrap: { user: { login_shell: "/usr/bin/fish" } },
     dotfiles: {
-      "~/.config/fish/config.fish": "fish/config.fish",
       "~/.config/fish/conf.d": { source: "fish/conf.d", mode: "symlink-each" },
       "~/.config/fish/functions": {
         source: "fish/functions",
