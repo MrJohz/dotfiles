@@ -1,0 +1,6 @@
+[tools]
+jq = "latest"
+ripgrep = "latest"
+fd = "latest"
+bat = "latest"
+eza = "latest"

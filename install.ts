@@ -61,12 +61,8 @@ function ssh(): Mise {
 
 function tools(): Mise {
   return {
-    tools: {
-      jq: "latest",
-      ripgrep: "latest",
-      fd: "latest",
-      bat: "latest",
-      eza: "latest",
+    dotfiles: {
+      "~/.config/mise/conf.d/tools.toml": "tools/mise-tools.toml",
     },
   };
 }
