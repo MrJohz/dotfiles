@@ -99,12 +99,26 @@ async function backup(config: Config): Promise<Mise> {
   await $`mkdir -p ${backupKeyFolder}`;
   await $`ssh-keygen -t ed25519 -C ${remote} -f ${backupKeyFile} -N ""`;
 
+  const envFile = ephemeral`restic-env`;
+  await Deno.writeTextFile(
+    envFile,
+    file`
+      RESTIC_REPOSITORY=sftp:storagebox:restic
+      RESTIC_PASSWORD=${password}\n
+    `,
+    // prevent other users from reading this file
+    { mode: 0o600 },
+  );
+
   return {
     vars: { backup_host: config.features.backup.host, backup_user: username },
     dotfiles: {
-      "~/.config/restic/exclude": "backups/exclude",
       "~/.local/bin/restic-backup": "backups/restic-backup.sh",
+      "~/.config/restic/exclude": "backups/exclude",
       "~/.config/restic/keys": backupKeyFolder,
+      // use mode: template to ensure the correct file permissions
+      // are consistently applied
+      "~/.config/restic/env": { source: envFile, mode: "template" },
       "~/.ssh/config.d/10-storagebox.conf": {
         source: "ssh/storagebox.conf.tmpl",
         mode: "template",
@@ -139,16 +153,6 @@ async function backup(config: Config): Promise<Mise> {
         // This will prompt for a password -- I couldn't find a better way of
         // doing this than just letting the prompt happen
         final: { run: [`ssh-copy-id -p 23 ${remote} -i ${backupKeyFile}`] },
-      },
-      files: {
-        "~/.config/restic/env": {
-          // only owner can access this file
-          mode: "0600",
-          content: file`
-            RESTIC_REPOSITORY=sftp:storagebox:restic
-            RESTIC_PASSWORD=${password}\n
-        `,
-        },
       },
     },
   };
