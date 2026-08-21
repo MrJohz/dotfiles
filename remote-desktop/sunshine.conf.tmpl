@@ -1,0 +1,10 @@
+# Fail loudly rather than fall back. Without this Sunshine drops to the XDG
+# portal when KMS capture finds no monitor, and the portal path hangs forever
+# on a headless autologin box waiting for a consent dialog nobody can click —
+# the service reports `active` and never opens its ports.
+capture = kms
+
+# Sunshine >= 2026.428 rejects web-UI requests whose Origin is not listed here
+# (default: localhost only), which surfaces confusingly as pairing failures.
+# localhost covers the scripted pairing flow in the README runbook.
+csrf_allowed_origins = https://localhost:47990,https://{{ vars.hostname }}:47990

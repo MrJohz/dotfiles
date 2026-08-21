@@ -12,8 +12,13 @@ hostname = "..."
 # host = "..."
 # user = "..."
 
-## Set this machine up with a virtual desktop accessible via RDP
-# [features.rdp-host]
+## Make this machine a Sunshine remote desktop host, reachable over Tailscale only
+## Streams a real GNOME desktop from boot with no login; the Sunshine ports are
+## dropped on every interface except tailscale0.  Needs a reboot to take effect.
+# [features.remote-desktop-server]
+# user      = "..."            # autologin user; owns the captured session
+# connector = "HDMI-A-1"       # DRM connector to force on
+# mode      = "1920x1080@60"   # mode is supplied directly, no EDID involved
 
 ## Create a user on this machine that automatically connects to a given RDP host
 ## Can be used multiple times for multiple hosts/users

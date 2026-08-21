@@ -1,0 +1,22 @@
+# GNOME power defaults for a headless streaming host.
+#
+# System database, not per-user dconf, and deliberately so: a `gsettings set`
+# from a non-interactive bootstrap hook reports success and never reaches disk
+# (see remote-desktop/setup-sunshine.sh for the full trap). Root-owned files in
+# /etc/dconf/db/local.d are authoritative and survive reboots.
+#
+# Blanking is what breaks capture: when the display blanks the CRTC is torn
+# down, Sunshine's KMS monitor list empties, and it silently falls back to the
+# XDG portal — which on a headless autologin box waits forever for a consent
+# dialog nobody can click. The service stays `active` throughout.
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-type='nothing'
+
+[org/gnome/desktop/session]
+idle-delay=uint32 0
+
+[org/gnome/desktop/screensaver]
+lock-enabled=false
+idle-activation-enabled=false

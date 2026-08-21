@@ -38,6 +38,12 @@ function __fish_greeting_dotfiles-check
     $repo/backups/enrol-backup.sh --check >/dev/null 2>&1
     or set -a notes 'backup: enrolment check FAILED — run: backups/enrol-backup.sh --check'
 
+    # Exits 0 immediately on any machine that is not a remote desktop server,
+    # so this costs one short-lived process everywhere else. Worth it: a host
+    # that has quietly stopped capturing still reports its service as active.
+    $repo/remote-desktop/setup-sunshine.sh --check >/dev/null 2>&1
+    or set -a notes 'remote desktop: check FAILED — run: remote-desktop/setup-sunshine.sh --check'
+
     # A failed backup is the other way things go missing, and nothing else
     # reports it. Local and instant — systemd remembers the last result.
     if systemctl --user is-failed --quiet dev.mise.restic-backup.service

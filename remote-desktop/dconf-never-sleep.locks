@@ -1,0 +1,8 @@
+# Locks are advisory, not a guarantee: a running session was still observed
+# overriding these in dconf-service memory. The masked sleep targets are the
+# layer that actually holds. Keep both.
+/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type
+/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type
+/org/gnome/desktop/session/idle-delay
+/org/gnome/desktop/screensaver/lock-enabled
+/org/gnome/desktop/screensaver/idle-activation-enabled

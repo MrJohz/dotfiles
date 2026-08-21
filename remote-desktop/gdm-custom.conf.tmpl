@@ -1,0 +1,17 @@
+# GDM configuration storage
+#
+# Managed whole-file by dotfiles. GDM has no conf.d, and this is an INI whose
+# stock form ends in [security]/[debug] — a block appended to the end would land
+# inside [debug], where AutomaticLoginEnable means nothing.
+#
+# Autologin is what makes the remote desktop available after a cold boot with
+# nobody logged in: it creates the seat0 graphical session that Sunshine's user
+# unit rides, and that KMS capture needs a real DRM display for.
+[daemon]
+AutomaticLoginEnable=True
+AutomaticLogin={{ vars.remote_desktop_user }}
+WaylandEnable=true
+
+[security]
+
+[debug]
