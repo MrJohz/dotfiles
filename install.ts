@@ -152,7 +152,7 @@ async function backup(config: Config): Promise<Mise> {
         // Get storage box set up with a copy of the backup key
         // This will prompt for a password -- I couldn't find a better way of
         // doing this than just letting the prompt happen
-        final: { run: [`ssh-copy-id -p 23 ${remote} -i ${backupKeyFile}`] },
+        final: { run: [`ssh-copy-id -p 23 -i ${backupKeyFile} ${remote}`] },
       },
     },
   };
