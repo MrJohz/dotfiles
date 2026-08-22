@@ -1,4 +1,5 @@
 Host storagebox
     HostName {{ vars.backup_host }}
+    Port     {{ vars.backup_port }}
     User     {{ vars.backup_user }}
     IdentityFile ~/.config/restic/keys/id_ed25519_storagebox

@@ -28,8 +28,15 @@ function __fish_greeting_dotfiles-check
     and set -a notes "dotfiles: $behind unapplied commit(s) — run: up"
 
     # Local drift: the repo is current but the machine no longer matches it.
-    mise bootstrap status --missing >/dev/null 2>&1
+    # MISE_ENV is required: without it, status only sees [tools] and silently
+    # ignores every dotfile, managed file and unit.
+    MISE_ENV=bootstrap mise bootstrap status --missing >/dev/null 2>&1
     or set -a notes 'dotfiles: machine has drifted — run: mise bootstrap --dry-run'
+
+    # The backup key lives outside mise's view (it is generated on the machine,
+    # never in the repo), so bootstrap status cannot check it.
+    $repo/backups/enrol-backup.sh --check >/dev/null 2>&1
+    or set -a notes 'backup: enrolment check FAILED — run: backups/enrol-backup.sh --check'
 
     # A failed backup is the other way things go missing, and nothing else
     # reports it. Local and instant — systemd remembers the last result.

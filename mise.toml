@@ -9,3 +9,7 @@ run = "deno -R=./setup.toml -W=./mise.bootstrap.toml install.ts"
 [tasks.apply]
 description = "Run the bootstrap action"
 run = "MISE_ENV=bootstrap mise bootstrap"
+
+[tasks.clear-secrets-cache]
+description = "Forget all cached secrets so the next apply re-prompts"
+run = "tools/secret clear"

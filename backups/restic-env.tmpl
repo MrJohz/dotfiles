@@ -1,0 +1,8 @@
+# Rendered by `mise bootstrap` into ~/.config/restic/env (0600).
+#
+# The password comes from the local secret store rather than living in this
+# repository. `tools/secret get` exits non-zero if the value is missing or
+# empty, which aborts the render — mise writes exec() output verbatim and would
+# otherwise happily store an empty password.
+RESTIC_REPOSITORY=sftp:storagebox:restic
+RESTIC_PASSWORD={{ exec(command=config_root ~ "/tools/secret get restic_password") }}

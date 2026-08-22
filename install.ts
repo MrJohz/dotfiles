@@ -1,30 +1,16 @@
 import * as toml from "jsr:@std/toml";
-import $ from "jsr:@david/dax";
 import * as z from "jsr:@zod/zod";
 import { deepMerge } from "jsr:@cross/deepmerge";
-import { undent } from "jsr:@okikio/undent";
 import type { Mise, Vars1 } from "./mise-schema.d.ts";
 
 /**
- * file-style undents
+ * Hetzner storage boxes speak SSH on port 23, not 22.
  *
- * Ensures that if the text block ends with \n, then exactly
- * one trailing newline will appear in the trimmed string (default
- * is to trim all newlines)
+ * This is the only definition. It reaches ssh via the config template, and
+ * everything else talks to the `storagebox` alias so it inherits the port from
+ * there — a second copy is what silently broke backups once already.
  */
-const file = undent.with({ trim: { leading: "all", trailing: "one" } });
-
-/**
- * file path in the ephemeral folder
- *
- * Defines a path that will show up in the ephemeral (not-checked-in)
- * folder in this project, for files that are generated during install
- * and need to be copied to the server later
- */
-const ephemeral = (str: string | TemplateStringsArray, ...subs: unknown[]) =>
-  `ephemeral/${
-    typeof str === "string" ? str : String.raw({ raw: str }, ...subs)
-  }`;
+const BACKUP_PORT = "23";
 
 function hostname(config: Config): Mise {
   return {
@@ -86,45 +72,52 @@ function tools(): Mise {
   };
 }
 
-async function backup(config: Config): Promise<Mise> {
+/**
+ * Backups to a Hetzner storage box.
+ *
+ * Pure: everything here is a description of the desired state. The key is
+ * generated on the target by the post-dotfiles hook (a key is machine-specific
+ * and must never travel), and the repository password is prompted for once by
+ * the pre-packages hook and cached by tools/secret.
+ */
+function backup(config: Config): Mise {
   if (!config.features?.backup) return {};
 
-  const username = await $.prompt("Backup box user");
-  const password = await $.prompt("Restic password", { mask: true });
-
-  const remote = `${username}@${config.features.backup.host}`;
-
-  const backupKeyFolder = ephemeral`storagebox`;
-  const backupKeyFile = backupKeyFolder + "/id_ed25519_storagebox";
-  await $`mkdir -p ${backupKeyFolder}`;
-  await $`ssh-keygen -t ed25519 -C ${remote} -f ${backupKeyFile} -N ""`;
-
-  const envFile = ephemeral`restic-env`;
-  await Deno.writeTextFile(
-    envFile,
-    file`
-      RESTIC_REPOSITORY=sftp:storagebox:restic
-      RESTIC_PASSWORD=${password}\n
-    `,
-    // prevent other users from reading this file
-    { mode: 0o600 },
-  );
+  const { host, user } = config.features.backup;
 
   return {
-    vars: { backup_host: config.features.backup.host, backup_user: username },
+    vars: { backup_host: host, backup_user: user, backup_port: BACKUP_PORT },
     dotfiles: {
       "~/.local/bin/restic-backup": "backups/restic-backup.sh",
       "~/.config/restic/exclude": "backups/exclude",
-      "~/.config/restic/keys": backupKeyFolder,
-      // use mode: template to ensure the correct file permissions
-      // are consistently applied
-      "~/.config/restic/env": { source: envFile, mode: "template" },
       "~/.ssh/config.d/10-storagebox.conf": {
         source: "ssh/storagebox.conf.tmpl",
         mode: "template",
       },
     },
     bootstrap: {
+      // mise will not create a managed file's parent directory.
+      directories: { "~/.config/restic": { mode: "0700" } },
+      files: {
+        // Not a dotfile entry: `mode = "template"` copies the *source* file's
+        // permissions, and git records only the exec bit, so a checked-in
+        // template would render this password world-readable. A managed file
+        // takes an explicit mode.
+        "~/.config/restic/env": {
+          source: "backups/restic-env.tmpl",
+          template: true,
+          mode: "0600",
+        },
+      },
+      hooks: {
+        // The env file renders during the files phase, which runs well before
+        // the dotfiles phase — pre-packages is the only hook early enough to
+        // have the password cached in time.
+        "pre-packages": { run: ["tools/secret ensure restic_password"] },
+        // Needs ~/.ssh/config.d/10-storagebox.conf, which arrives with the
+        // dotfiles, so that the enrolment goes through the `storagebox` alias.
+        "post-dotfiles": { run: ["backups/enrol-backup.sh --ensure"] },
+      },
       linux: {
         systemd: {
           units: {
@@ -148,12 +141,6 @@ async function backup(config: Config): Promise<Mise> {
           },
         },
       },
-      hooks: {
-        // Get storage box set up with a copy of the backup key
-        // This will prompt for a password -- I couldn't find a better way of
-        // doing this than just letting the prompt happen
-        final: { run: [`ssh-copy-id -s -p 23 -i ${backupKeyFile} ${remote}`] },
-      },
     },
   };
 }
@@ -167,7 +154,7 @@ async function main() {
       git(config),
       ssh(),
       tools(),
-      await backup(config),
+      backup(config),
     ),
   );
 
@@ -179,7 +166,7 @@ type Config = z.infer<typeof MachineToml>;
 const MachineToml = z.object({
   vars: z.object({ hostname: z.string(), git_email: z.string().optional() }),
   features: z.object({
-    backup: z.object({ host: z.string() }).optional(),
+    backup: z.object({ host: z.string(), user: z.string() }).optional(),
   }).optional(),
 }).strict();
 

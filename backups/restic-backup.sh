@@ -17,6 +17,17 @@ fi
 set -a; . "$conf/env"; set +a
 mkdir -p "$state"
 
+# Initialise the repository on first run. restic exits 10 specifically for "no
+# repository here", so a network or credential failure surfaces as itself
+# rather than being mistaken for an empty box.
+restic cat config >/dev/null 2>&1 || status=$?
+if [ "${status:-0}" -eq 10 ]; then
+    echo "no repository at $RESTIC_REPOSITORY — initialising" >&2
+    restic init
+elif [ "${status:-0}" -ne 0 ]; then
+    exit "$status"
+fi
+
 restic backup "$HOME" \
     --exclude-file "$conf/exclude" \
     --exclude-caches \

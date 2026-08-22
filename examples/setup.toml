@@ -10,6 +10,7 @@ hostname = "..."
 ## Add backups to this machine (configure the user of the Hetzner storage box)
 # [features.backup]
 # host = "..."
+# user = "..."
 
 ## Set this machine up with a virtual desktop accessible via RDP
 # [features.rdp-host]
