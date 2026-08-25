@@ -1,0 +1,72 @@
+[user]
+name = "Jonathan Frere"
+email = "jonathan.frere@gmail.com"
+
+[revsets]
+bookmark-advance-to = "closest_pushable(@)"
+
+[revset-aliases]
+'closest_bookmark(to)' = 'heads(::to & bookmarks())'
+'branch(root, rev)' = 'fork_point(root..rev)::rev'
+'context(rev, N)' = 'ancestors(descendants(rev, N), N)'
+'closest_pushable(to)' = 'heads(::to & mutable() & ~description(exact:"") & (~empty() | merges()))'
+
+[ui]
+default-command = "log"
+diff.tool = "difft"
+merge-editor = ":builtin"
+diff-editor = ":builtin"
+
+[ui.graph]
+
+[merge-tools.vscode]
+merge-args = ["--wait", "--new-window", "--merge", "$left", "$right", "$base", "$output"]
+
+[merge-tools.difft]
+program = "difft"
+diff-args = ["--color=always", "$left", "$right"]
+
+## Uncomment to enable file-watching
+# [core]
+# fsmonitor = "watchman"
+# watchman.register_snapshot_trigger = true
+
+[fileset-aliases]
+'LOCK' = '**/Cargo.lock | **/package-lock.json | **/uv.lock'
+'not:x' = '~x'
+
+[templates]
+git_push_bookmark = '"jf/push-" ++ change_id.short()'
+
+[template-aliases]
+log_compact_no_meta = '''
+if(root,
+  format_root_commit(self),
+  label(if(current_working_copy, "working_copy"),
+    concat(
+      format_short_commit_no_meta(self) ++ "\n",
+      separate(" ",
+        if(empty, label("empty", "(empty)")),
+        if(description,
+          description.first_line(),
+          label(if(empty, "empty"), description_placeholder),
+        ),
+      ) ++ "\n",
+    ),
+  )
+)
+'''
+
+'format_short_commit_no_meta(commit)' = '''
+separate(" ",
+  format_short_change_id_with_hidden_and_divergent_info(commit),
+  commit.bookmarks(),
+  commit.tags(),
+  commit.working_copies(),
+  if(commit.git_head(), label("git_head", "git_head()")),
+  format_short_commit_id(commit.commit_id()),
+  if(commit.conflict(), label("conflict", "conflict")),
+  if(config("ui.show-cryptographic-signatures").as_boolean(),
+    format_short_cryptographic_signature(commit.signature())),
+)
+'''

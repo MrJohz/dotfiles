@@ -1,2 +1,4 @@
 /mise.bootstrap.toml
 /setup.toml
+*.pyc
+__pycache__

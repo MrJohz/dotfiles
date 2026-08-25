@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+
+import argparse
+import datetime as dt
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+HUNK_RE = re.compile(
+    r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? "
+    r"\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
+)
+
+
+def run(cmd, *, check_codes=(0,)):
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode not in check_codes:
+        msg = result.stderr.strip() or f"command failed: {' '.join(cmd)}"
+        print(msg)
+        sys.exit(1)
+    return result.stdout
+
+
+def git_root_for(path: Path) -> Path:
+    out = run(["git", "-C", str(path.parent), "rev-parse", "--show-toplevel"]).strip()
+    return Path(out)
+
+
+def resolve_file(path_str: str) -> Path:
+    path = Path(path_str).expanduser()
+    if not path.is_absolute():
+        path = (Path.cwd() / path).resolve()
+    return path
+
+
+def parse_blame_porcelain(text: str):
+    lines = text.splitlines()
+    if not lines:
+        raise ValueError("No blame output")
+
+    first = lines[0].split()
+    commit = first[0]
+    metadata = {"commit": commit}
+    if len(first) >= 3:
+        metadata["source-line"] = first[1]
+        metadata["result-line"] = first[2]
+
+    for line in lines[1:]:
+        if line.startswith("\t"):
+            break
+        if " " not in line:
+            continue
+        key, value = line.split(" ", 1)
+        metadata[key] = value
+
+    return metadata
+
+
+def format_author_date(author: str, author_time: str, author_tz: str) -> str:
+    timestamp = int(author_time)
+    timezone = author_tz
+    sign = 1 if timezone[0] == "+" else -1
+    offset = sign * (int(timezone[1:3]) * 60 + int(timezone[3:5]))
+    tzinfo = dt.timezone(dt.timedelta(minutes=offset))
+    authored_at = dt.datetime.fromtimestamp(timestamp, tz=tzinfo)
+    return f"{author}, {authored_at.strftime('%Y-%m-%d %H:%M:%S %z')}"
+
+
+def format_hunk_header(old_start: int, old_count: int, new_start: int, new_count: int) -> str:
+    return f"@@ -{format_hunk_range(old_start, old_count)} +{format_hunk_range(new_start, new_count)} @@"
+
+
+def format_hunk_range(start: int, count: int) -> str:
+    if count == 1:
+        return str(start)
+    return f"{start},{count}"
+
+
+def parse_hunks(text: str):
+    hunks = []
+    current = None
+
+    for line in text.splitlines():
+        match = HUNK_RE.match(line)
+        if match:
+            if current is not None:
+                hunks.append(current)
+
+            old_start = int(match.group("old_start"))
+            old_count = int(match.group("old_count") or "1")
+            new_start = int(match.group("new_start"))
+            new_count = int(match.group("new_count") or "1")
+            current = {
+                "old_start": old_start,
+                "old_count": old_count,
+                "new_start": new_start,
+                "new_count": new_count,
+                "body": [format_hunk_header(old_start, old_count, new_start, new_count)],
+            }
+            continue
+
+        if current is not None:
+            current["body"].append(line)
+
+    if current is not None:
+        hunks.append(current)
+
+    return hunks
+
+
+def line_in_new_range(line: int, start: int, count: int) -> bool:
+    if count == 0:
+        return line == start or line == start + 1
+    return start <= line <= start + count - 1
+
+
+def line_in_old_range(line: int, start: int, count: int) -> bool:
+    if count == 0:
+        return line == start or line == start + 1
+    return start <= line <= start + count - 1
+
+
+def select_hunk_for_line(hunks, source_line: int, result_line: int):
+    for hunk in hunks:
+        if line_in_new_range(result_line, hunk["new_start"], hunk["new_count"]):
+            return hunk
+    for hunk in hunks:
+        if line_in_old_range(source_line, hunk["old_start"], hunk["old_count"]):
+            return hunk
+    return None
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file")
+    parser.add_argument("line", type=int)
+    args = parser.parse_args()
+
+    if args.file == "[scratch]":
+        print("Current buffer is not file-backed.")
+        return
+
+    abs_path = resolve_file(args.file)
+    if not abs_path.exists():
+        print(f"File does not exist: {abs_path}")
+        return
+
+    try:
+        root = git_root_for(abs_path)
+    except SystemExit:
+        print("Not inside a git repository.")
+        return
+
+    try:
+        relpath = os.path.relpath(abs_path, root)
+    except ValueError:
+        print("Current file is outside the git repository.")
+        return
+
+    blame_output = run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "blame",
+            "--porcelain",
+            "-L",
+            f"{args.line},{args.line}",
+            "--",
+            relpath,
+        ]
+    )
+    blame = parse_blame_porcelain(blame_output)
+
+    commit = blame["commit"]
+    if commit == "0000000000000000000000000000000000000000":
+        print("Line is not yet committed.")
+        return
+
+    summary = blame.get("summary", "(no commit summary)")
+    author = blame.get("author", "Unknown author")
+    author_time = blame.get("author-time", "0")
+    author_tz = blame.get("author-tz", "+0000")
+    source_line = int(blame.get("source-line", args.line))
+    result_line = int(blame.get("result-line", args.line))
+
+    show_output = run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "show",
+            "--format=",
+            "--no-ext-diff",
+            "--no-color",
+            "--unified=0",
+            commit,
+            "--",
+            relpath,
+        ],
+        check_codes=(0, 1),
+    )
+
+    hunks = parse_hunks(show_output)
+    hunk = select_hunk_for_line(hunks, source_line, result_line)
+
+    parts = [
+        commit,
+        format_author_date(author, author_time, author_tz),
+        summary,
+    ]
+
+    if hunk is not None:
+        parts.extend(["", "\n".join(hunk["body"])])
+    else:
+        parts.extend(["", "No file-local hunk found for this blamed line."])
+
+    print("\n".join(parts))
+
+
+if __name__ == "__main__":
+    main()

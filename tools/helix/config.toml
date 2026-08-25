@@ -1,0 +1,32 @@
+[editor]
+bufferline = "always"
+cursorline = false
+end-of-line-diagnostics = "hint"
+
+[editor.file-picker]
+hidden = false
+ignore = false
+git-ignore = true
+git-global = true
+git-exclude = true
+
+[editor.soft-wrap]
+enable = true
+# wrap-indicator = ""
+
+[editor.inline-diagnostics]
+cursor-line = "warning"
+
+[editor.lsp]
+display-messages = true
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[keys.normal."+"]
+h = ':run-shell-command "$HOME/.config/helix/bin/show-current-hunk" "%{buffer_name}" "%{cursor_line}"'
+b = ':run-shell-command "$HOME/.config/helix/bin/show-blame-hunk" "%{buffer_name}" "%{cursor_line}"'
+s = ':run-shell-command "$HOME/.config/helix/bin/show-current-hunk" --mode staged "%{buffer_name}" "%{cursor_line}"'
+u = ':run-shell-command "$HOME/.config/helix/bin/show-current-hunk" --mode unstaged "%{buffer_name}" "%{cursor_line}"'
