@@ -75,6 +75,16 @@ curl -sk -u admin:"$(tools/secret get sunshine_password)" \
      -X POST https://localhost:47990/api/pin -d '{"pin":"4321","name":"my-laptop"}'
 ```
 
+**Set the client's bitrate while you are there.** This is the single biggest
+factor in how the stream looks, it lives in Moonlight, and no host setting can
+override it — so it has to be done on every client. Moonlight's default for
+1080p60 is 20 Mbps and there is no reason to sit near that on a LAN; 40-50 Mbps
+is comfortable. Note that Sunshine spends roughly a quarter of the configured
+figure on FEC and packet overhead (10 Mbps configured measured as 7.3 Mbps
+reaching the encoder), so the number set in Moonlight is not the number the
+encoder gets. A client left at 10 Mbps looks blurry and pixelated in a way that
+is easy to misread as a resolution problem.
+
 Paired clients live in `~/.config/sunshine/sunshine_state.json`, and the web-UI
 password in `~/.config/sunshine/credentials/`. Both are machine state, not
 config — keeping them should avoid re-pairing after a rebuild, though that has

@@ -4,6 +4,17 @@
 # the service reports `active` and never opens its ports.
 capture = kms
 
+# Left to itself Sunshine probes Vulkan before VAAPI and picks it, which on
+# RADV produces a visibly soft, blocky picture. The giveaway in the log is the
+# signalled level: hevc_vulkan claimed HEVC 3.1, whose maximum picture size is
+# 983,040 luma samples — a 1920x1080 frame is 2,073,600. Decoders are lenient
+# enough to play it anyway, so this never surfaces as an error, only as bad
+# pictures. VAAPI drives the same VCN hardware with real VBR rate control.
+#
+# Worth re-testing after Mesa updates; RADV's Vulkan encode is improving and
+# this override may stop being necessary.
+encoder = vaapi
+
 # Sunshine >= 2026.428 rejects web-UI requests whose Origin is not listed here
 # (default: localhost only), which surfaces confusingly as pairing failures.
 # localhost covers the scripted pairing flow in the README runbook.

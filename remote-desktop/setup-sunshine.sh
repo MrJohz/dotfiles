@@ -60,6 +60,18 @@ sunshine_bin() { command -v sunshine 2>/dev/null || echo /home/linuxbrew/.linuxb
 # Prefer the system libcap binary over whatever brew may have put on PATH.
 getcap_bin() { [ -x /usr/sbin/getcap ] && echo /usr/sbin/getcap || command -v getcap; }
 
+# Wireless interfaces only. A machine on Ethernet has none, and every power
+# save step below then does nothing — which is the desired answer, since
+# Ethernet is the better fix rather than something to warn about.
+wifi_devices() {
+    local dev
+    for dev in /sys/class/net/*; do
+        [ -d "$dev/wireless" ] && basename "$dev"
+    done
+}
+
+powersave_state() { iw dev "$1" get power_save 2>/dev/null | awk '{ print $NF }'; }
+
 # --- ensure ---------------------------------------------------------------
 
 reboot_required=0
@@ -120,6 +132,29 @@ ensure_no_gnome_remote_desktop() {
     sudo systemctl mask gnome-remote-desktop.service
 }
 
+# The managed drop-in in /etc/NetworkManager/conf.d is what makes this survive a
+# reboot, but it only binds at the next association — so a converge that does not
+# reboot would leave power save on until the link happened to bounce. Both halves
+# are needed: reload so NetworkManager reads the drop-in, and set the live state
+# directly for the session already up.
+#
+# Measured on this hardware: power save on gave 90.5 ms average LAN round-trip
+# with repeated stream stalls, off gave 13.1 ms with none. It regressed silently
+# across one reboot and was found only by someone noticing mid-stream lag, which
+# is why check_wifi_powersave exists.
+ensure_wifi_powersave() {
+    local dev devs
+    devs=$(wifi_devices)
+    [ -n "$devs" ] || return 0
+
+    # Deliberately not `nmcli connection reload`, which re-reads connection
+    # profiles; the drop-in is main configuration and needs this instead.
+    sudo nmcli general reload conf
+    for dev in $devs; do
+        sudo iw dev "$dev" set power_save off
+    done
+}
+
 # Sunshine listens on 0.0.0.0 and has no bind-address setting, so reaching only
 # the tailnet is a firewall property.
 #
@@ -168,6 +203,7 @@ cmd_ensure() {
     ensure_capabilities
     ensure_no_sleep
     ensure_no_gnome_remote_desktop
+    ensure_wifi_powersave
     ensure_firewall
     ensure_credentials
 
@@ -234,6 +270,18 @@ check_display() {
     bad "no drm connector matching $RDS_CONNECTOR"
 }
 
+# Reading power save needs no privilege, so this runs from fish_greeting like
+# the rest. Silent on a machine with no wireless interface.
+check_wifi_powersave() {
+    local dev state
+    for dev in $(wifi_devices); do
+        state=$(powersave_state "$dev")
+        [ "$state" = "off" ] &&
+            ok "wifi $dev power save off" ||
+            bad "wifi $dev power save is ${state:-unknown} — expect multi-frame stream stalls"
+    done
+}
+
 # Runtime, not --permanent: --permanent queries need root and this runs
 # unprivileged from fish_greeting, but more importantly the runtime ruleset is
 # the one actually enforcing. A permanent rule that was never reloaded is not
@@ -281,6 +329,7 @@ cmd_check() {
         ok "sunshine has cap_sys_admin" ||
         bad "sunshine is missing cap_sys_admin — kms capture will fail"
 
+    check_wifi_powersave
     check_firewall
 
     if systemctl --user is-active --quiet "$unit"; then
