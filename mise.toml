@@ -4,7 +4,7 @@ taplo = "latest"
 
 [tasks.setup]
 description = "Create the bootstrap mise config"
-run = "deno -R=./setup.toml -W=./mise.bootstrap.toml install.ts"
+run = "deno -R=./setup.toml,./remote-desktop/gdm-custom.conf.tmpl -W=./mise.bootstrap.toml install.ts"
 
 [tasks.apply]
 description = "Run the bootstrap action"

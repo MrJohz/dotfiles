@@ -162,21 +162,35 @@ function backup(config: Config): Mise {
 /**
  * Sunshine remote desktop host, reachable only over Tailscale.
  *
- * Pure, like backup(): the machine-specific values come from setup.toml and are
- * handed to the target as `~/.config/sunshine/host.env`, whose existence is
- * also how setup-sunshine.sh knows the feature is enabled here. Nothing in this
- * function runs unless the feature is configured, which is what keeps every
- * other machine unaffected.
+ * The machine-specific values come from setup.toml and are handed to the target
+ * as `~/.config/sunshine/host.env`, whose existence is also how
+ * setup-sunshine.sh knows the feature is enabled here. Nothing in this function
+ * runs unless the feature is configured, which is what keeps every other
+ * machine unaffected.
  *
- * The root-owned files are `bootstrap.files` rather than dotfiles: mise applies
- * dotfiles unprivileged and fails at create_dir_all on /etc. bootstrap.files is
- * the privileged path, and it takes the explicit owner/mode these need anyway.
+ * The root-owned files are `bootstrap.files` rather than dotfiles: dotfiles
+ * write as the invoking user with no elevation, so an /etc target fails with a
+ * plain permission error unless the whole run is root. bootstrap.files retries
+ * as root on the first permission error, and it takes the explicit owner/mode
+ * these need anyway — dotfiles copy permissions from the source file and have
+ * no owner/group field. The tradeoff is that bootstrap.files will not create a
+ * managed file's parent, hence the [bootstrap.directories] entries below.
+ *
+ * Unlike backup(), this one is not pure: `vars` is out of scope for
+ * `[bootstrap.files]` templates, so the one templated file is rendered here.
  */
-function remoteDesktopServer(config: Config): Mise {
+async function remoteDesktopServer(config: Config): Promise<Mise> {
   const feature = config.features?.["remote-desktop-server"];
   if (!feature) return {};
 
   const { user, connector, mode } = feature;
+
+  // `[bootstrap.files]` templates render with only config_root/cwd/env/secret()
+  // in scope — no `vars` — so this one is rendered at generation time and
+  // emitted as `content`, the same way hostname() handles /etc/hostname.
+  const gdmCustomConf = (await Deno.readTextFile(
+    "./remote-desktop/gdm-custom.conf.tmpl",
+  )).replaceAll("{{ vars.remote_desktop_user }}", user);
 
   return {
     vars: {
@@ -198,9 +212,6 @@ function remoteDesktopServer(config: Config): Mise {
     },
     bootstrap: {
       packages: {
-        // Homebrew is the only route that can do KMS capture: cap_sys_admin
-        // cannot be granted inside a Flatpak sandbox.
-        "brew:lizardbyte/homebrew/sunshine": "latest",
         // Not optional. The Sunshine bottle is missing a libquadmath
         // dependency, and without it every invocation dies at startup.
         "brew:gcc": "latest",
@@ -216,8 +227,7 @@ function remoteDesktopServer(config: Config): Mise {
       },
       files: {
         "/etc/gdm/custom.conf": {
-          source: "remote-desktop/gdm-custom.conf.tmpl",
-          template: true,
+          content: gdmCustomConf,
           mode: "0644",
           owner: "root",
           group: "root",
@@ -252,6 +262,14 @@ function remoteDesktopServer(config: Config): Mise {
             "tools/secret ensure sunshine_password",
             "brew tap LizardByte/homebrew",
             "brew trust lizardbyte/homebrew",
+            // Homebrew is the only route that can do KMS capture: cap_sys_admin
+            // cannot be granted inside a Flatpak sandbox. It cannot be a
+            // [bootstrap.packages] entry, though: mise's brew backend reads
+            // formula metadata from the tap's own api/formula/*.json and
+            // refuses to proxy to the brew CLI, and LizardByte publishes none,
+            // so the declarative route 404s. Re-running is safe — brew warns
+            // and exits 0 when the formula is already installed.
+            "brew install lizardbyte/homebrew/sunshine",
           ],
         },
         // Last: it needs the packages installed, the managed files written and
@@ -290,7 +308,7 @@ async function main() {
       ssh(),
       tools(),
       backup(config),
-      remoteDesktopServer(config),
+      await remoteDesktopServer(config),
     ),
   );
 
