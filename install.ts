@@ -67,6 +67,8 @@ function ssh(): Mise {
 function tools(): Mise {
   return {
     dotfiles: {
+      "~/.config/jj/config.toml": "tools/jj/config.toml",
+      "~/.config/helix": "tools/helix",
       "~/.config/mise/conf.d/tools.toml": "tools/mise-tools.toml",
     },
   };
