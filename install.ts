@@ -33,6 +33,17 @@ function hostname(config: Config): Mise {
   };
 }
 
+function environment(): Mise {
+  return {
+    dotfiles: {
+      "~/.config/environment.d": {
+        source: "environment.d",
+        mode: "symlink-each",
+      },
+    },
+  };
+}
+
 function fish(): Mise {
   return {
     bootstrap: {
@@ -69,6 +80,7 @@ function tools(): Mise {
     dotfiles: {
       "~/.config/jj/config.toml": "tools/jj/config.toml",
       "~/.config/helix": "tools/helix",
+      "~/.claude/CLAUDE.md": "claude/CLAUDE.md",
       "~/.config/mise/conf.d/tools.toml": "tools/mise-tools.toml",
     },
   };
@@ -272,6 +284,7 @@ async function main() {
   const file = toml.stringify(
     deepMerge(
       hostname(config),
+      environment(),
       fish(),
       git(config),
       ssh(),
