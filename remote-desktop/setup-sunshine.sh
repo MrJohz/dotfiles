@@ -247,8 +247,7 @@ verify_capture() {
     local since
     since=$(systemctl --user show "$unit" -p ActiveEnterTimestamp --value 2>/dev/null)
     [ -n "$since" ] || return 1
-    journalctl --user -u "$unit" --since "$since" 2>/dev/null |
-        grep -q 'Screencasting with KMS'
+    grep -q 'Screencasting with KMS' < <(journalctl --user -u "$unit" --since "$since" 2>/dev/null)
 }
 
 check_display() {

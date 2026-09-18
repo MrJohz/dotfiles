@@ -19,3 +19,14 @@ encoder = vaapi
 # (default: localhost only), which surfaces confusingly as pairing failures.
 # localhost covers the scripted pairing flow in the README runbook.
 csrf_allowed_origins = https://localhost:47990,https://{{ vars.hostname }}:47990
+
+# [An LLM generated the following paragraph.]
+#
+# Sunshine >= 2026.906 draws the tray with Qt. The brew bottle resolves no Qt
+# plugin path — the log reads `Could not find the Qt platform plugin "wayland"
+# in ""` — and the cap_sys_admin setcap puts the binary in secure-execution
+# mode, where QT_QPA_PLATFORM_PLUGIN_PATH is discarded, so the path cannot come
+# from the environment either. Qt then calls qFatal, and the unit dies with
+# SIGABRT after KMS capture and the encoders have already come up. See
+# LizardByte/Sunshine#5170, which is also where this workaround comes from.
+system_tray = disabled
